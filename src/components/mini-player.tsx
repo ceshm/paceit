@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -38,7 +39,7 @@ export function MiniPlayer() {
         <View style={[styles.progressFill, { backgroundColor: theme.text, width: `${progress * 100}%` }]} />
       </View>
 
-      <Pressable style={styles.info} onPress={togglePlay}>
+      <Pressable style={styles.info} onPress={() => router.push('/player')}>
         <Image source={{ uri: nowPlaying.episode.showArtwork }} style={styles.artwork} contentFit="cover" />
         <View style={styles.textCol}>
           <ThemedText type="smallBold" numberOfLines={1}>

@@ -21,6 +21,8 @@ export default function SearchScreen() {
   const [results, setResults] = useState<ItunesResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** bumping this remounts the (uncontrolled) input, clearing the native text field */
+  const [inputKey, setInputKey] = useState(0);
 
   useEffect(() => {
     const handle = setTimeout(async () => {
@@ -69,6 +71,7 @@ export default function SearchScreen() {
             {/* Uncontrolled: the OS field owns its buffer, so re-renders from the
                 debounced search can never reset or block composition mid-typing */}
             <TextInput
+              key={inputKey}
               style={[styles.input, { color: theme.text }]}
               placeholder="Podcast name or topic…"
               placeholderTextColor={theme.textSecondary}
@@ -81,6 +84,20 @@ export default function SearchScreen() {
             <View style={styles.spinnerSlot} pointerEvents="none">
               {searching && <ActivityIndicator size="small" />}
             </View>
+            <Pressable
+              onPress={() => {
+                setInputKey((k) => k + 1);
+                setQuery('');
+                setResults([]);
+                setError(null);
+              }}
+              hitSlop={8}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
+            >
+              <ThemedText type="small" themeColor="textSecondary">
+                ✕
+              </ThemedText>
+            </Pressable>
           </ThemedView>
         </ThemedView>
 

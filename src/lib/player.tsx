@@ -28,6 +28,7 @@ type PlayerState = {
   togglePlay: () => void;
   playEpisode: (episode: Episode, show?: Show | null) => void;
   seekBy: (deltaSeconds: number) => void;
+  seekTo: (seconds: number) => void;
   cycleRate: () => void;
   saveProgress: () => void;
 };
@@ -37,11 +38,14 @@ const PlayerContext = createContext<PlayerState | null>(null);
 export function PlayerProvider({
   children,
   getPosition,
+  getNextEpisode,
   onProgress,
 }: {
   children?: ReactNode;
   /** look up a stored position for an episode (seconds) */
   getPosition: (episodeId: string) => number;
+  /** next episode from the same show, for auto-advance (null to stop) */
+  getNextEpisode: (showId: string, episodeId: string) => Episode | null;
   /** called while playing, so the library can persist progress */
   onProgress: (episodeId: string, position: number, duration: number) => void;
 }) {
@@ -60,6 +64,11 @@ export function PlayerProvider({
 
   // Resume target applied once the new source has loaded
   const pendingSeekRef = useRef<number | null>(null);
+
+  const getNextEpisodeRef = useRef(getNextEpisode);
+  useEffect(() => {
+    getNextEpisodeRef.current = getNextEpisode;
+  }, [getNextEpisode]);
 
   // Configure audio session once: background playback + lock screen ownership
   useEffect(() => {
@@ -124,6 +133,16 @@ export function PlayerProvider({
     [getPosition, player],
   );
 
+  // Auto-advance: when an episode finishes, roll into the next one from the
+  // same show. Declared after playEpisode so it can call it directly.
+  useEffect(() => {
+    if (!status.didJustFinish || !nowPlaying) return;
+    const next = getNextEpisodeRef.current(nowPlaying.episode.showId, nowPlaying.episode.id);
+    if (next) {
+      playEpisode(next, nowPlaying.show);
+    }
+  }, [status.didJustFinish, nowPlaying, playEpisode]);
+
   const togglePlay = useCallback(() => {
     if (!nowPlaying) return;
     if (status.playing) {
@@ -138,6 +157,15 @@ export function PlayerProvider({
     (deltaSeconds: number) => {
       if (!player.duration) return;
       const next = Math.min(Math.max(0, player.currentTime + deltaSeconds), player.duration);
+      void player.seekTo(next);
+    },
+    [player],
+  );
+
+  const seekTo = useCallback(
+    (seconds: number) => {
+      if (!player.duration) return;
+      const next = Math.min(Math.max(0, seconds), player.duration);
       void player.seekTo(next);
     },
     [player],
@@ -166,10 +194,11 @@ export function PlayerProvider({
       togglePlay,
       playEpisode,
       seekBy,
+      seekTo,
       cycleRate,
       saveProgress,
     }),
-    [nowPlaying, status, rate, togglePlay, playEpisode, seekBy, cycleRate, saveProgress],
+    [nowPlaying, status, rate, togglePlay, playEpisode, seekBy, seekTo, cycleRate, saveProgress],
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
