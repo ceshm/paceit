@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LayoutAnimation, StyleSheet, View } from 'react-native';
 
@@ -16,17 +16,18 @@ type ScrubberProps = {
 /**
  * Custom scrub bar (no native slider dependency): tap or drag to seek.
  * While dragging, shows a local preview so the live position doesn't fight it.
+ *
+ * `.runOnJS(true)` forces every gesture callback onto the JS thread — no
+ * Reanimated worklets. That's deliberate: this scrubber only updates React
+ * state, and with UI-thread worklets any captured plain-JS helper (e.g. a
+ * `clamp` util) or state setter becomes a "remote function" whose synchronous
+ * call aborts the app with no redbox. See
+ * https://docs.swmansion.com/react-native-worklets/docs/guides/troubleshooting
  */
 export function Scrubber({ value, max, onSeek }: ScrubberProps) {
   const theme = useTheme();
   const [trackWidth, setTrackWidth] = useState(0);
   const [previewRatio, setPreviewRatio] = useState<number | null>(null);
-
-  // Mirror for gesture callbacks without recreating the gesture every frame
-  const previewRatioRef = useRef<number | null>(null);
-  useEffect(() => {
-    previewRatioRef.current = previewRatio;
-  }, [previewRatio]);
 
   const ratio = previewRatio ?? (max > 0 ? Math.min(1, value / max) : 0);
 
@@ -34,20 +35,21 @@ export function Scrubber({ value, max, onSeek }: ScrubberProps) {
   const pan = useMemo(
     () =>
       Gesture.Pan()
+        .runOnJS(true)
         .minDistance(1)
         .onBegin((e) => {
           if (max <= 0 || trackWidth <= 0) return;
           setPreviewRatio(clamp(e.x / trackWidth));
         })
         .onUpdate((e) => {
-          if (previewRatioRef.current === null) return;
+          if (max <= 0 || trackWidth <= 0) return;
           setPreviewRatio(clamp(e.x / trackWidth));
         })
         .onFinalize((e) => {
-          if (previewRatioRef.current === null) return;
+          if (max <= 0 || trackWidth <= 0) return;
           const target = clamp(e.x / trackWidth) * max;
-          setPreviewRatio(null);
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setPreviewRatio(null);
           onSeek(target);
         }),
     [max, trackWidth, onSeek],

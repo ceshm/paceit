@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -16,9 +16,12 @@ import { useTheme } from '@/hooks/use-theme';
 export function MiniPlayer() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const { nowPlaying, status, rate, togglePlay, seekBy, cycleRate } = usePlayer();
 
-  if (!nowPlaying) return null;
+  // Hide while the full-screen player modal is open (it's a sibling of the
+  // Stack here, so on Android it would otherwise float on top of the modal).
+  if (!nowPlaying || pathname === '/player') return null;
 
   const { currentTime, duration } = status ?? { currentTime: 0, duration: 0 };
   const progress = duration > 0 ? currentTime / duration : 0;

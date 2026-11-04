@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { View, useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -11,9 +12,11 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <LibraryProvider>
-      <AppShell />
-    </LibraryProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <LibraryProvider>
+        <AppShell />
+      </LibraryProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -42,7 +45,17 @@ function AppShell() {
         <View style={{ flex: 1 }}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="player" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="player"
+              options={{
+                // Native sheet on both platforms: iOS UIModalPresentationFormSheet
+                // (card) + Android Material BottomSheetBehavior — native swipe-to-
+                // dismiss and scrim included. Keep headerShown false; nested
+                // navigators/headers inside a formSheet screen are unsupported.
+                presentation: 'formSheet',
+                headerShown: false,
+              }}
+            />
           </Stack>
           <MiniPlayer />
         </View>

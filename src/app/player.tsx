@@ -44,8 +44,9 @@ export default function PlayerScreen() {
 
   const { currentTime, duration, playing } = status ?? { currentTime: 0, duration: 0, playing: false };
 
-  return (
+  const content = (
     <ThemedView style={styles.container}>
+
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={16} style={({ pressed }) => pressed && { opacity: 0.6 }}>
@@ -117,6 +118,8 @@ export default function PlayerScreen() {
       </SafeAreaView>
     </ThemedView>
   );
+
+  return content;
 }
 
 const styles = StyleSheet.create({
