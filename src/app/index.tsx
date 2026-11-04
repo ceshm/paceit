@@ -1,61 +1,95 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useMemo } from 'react';
+import { FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Link } from 'expo-router';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { EpisodeRow } from '@/components/episode-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { positionOf, usePlayer } from '@/lib/player';
+import { useLibrary } from '@/lib/library';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
-
+/**
+ * Home: the Google-Podcasts-style triage screen.
+ * "Continue" (in-progress) pinned on top, then newest episodes from followed shows.
+ */
 export default function HomeScreen() {
+  const { recentEpisodes, shows, positions, loading } = useLibrary();
+  const { nowPlaying } = usePlayer();
+
+  const inProgress = useMemo(
+    () =>
+      recentEpisodes
+        .filter((ep) => {
+          const pos = positionOf(positions, ep.id);
+          return pos > 30 && (!positions[ep.id]?.duration || pos < positions[ep.id]!.duration * 0.98);
+        })
+        .slice(0, 5),
+    [recentEpisodes, positions],
+  );
+
+  const feed = useMemo(() => {
+    // Don't duplicate an episode that's already in "Continue"
+    const continueIds = new Set(inProgress.map((e) => e.id));
+    return recentEpisodes.filter((e) => !continueIds.has(e.id));
+  }, [recentEpisodes, inProgress]);
+
+  const showById = useMemo(() => new Map(shows.map((s) => [s.id, s])), [shows]);
+
+  const renderHeader = () => (
+    <>
+      {inProgress.length > 0 && (
+        <ThemedView style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
+            CONTINUE
+          </ThemedText>
+          {inProgress.map((ep) => (
+            <EpisodeRow key={ep.id} episode={ep} show={showById.get(ep.showId)} />
+          ))}
+        </ThemedView>
+      )}
+      <ThemedView style={styles.section}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
+          LATEST EPISODES
+        </ThemedText>
+      </ThemedView>
+    </>
+  );
+
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
+          Loading your library…
+        </ThemedText>
+      );
+    }
+    return (
+      <ThemedView type="backgroundElement" style={styles.emptyCard}>
+        <ThemedText type="default">Nothing here yet.</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Follow a few shows and their latest episodes will show up on this screen.
+        </ThemedText>
+        <Link href="/search" style={styles.link}>
+          <ThemedText type="smallBold">Find shows →</ThemedText>
+        </Link>
+      </ThemedView>
+    );
+  };
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <FlatList
+          data={feed}
+          keyExtractor={(ep, i) => `${ep.id}-${i}`}
+          renderItem={({ item }) => <EpisodeRow episode={item} show={showById.get(item.showId)} />}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmpty}
+          extraData={[nowPlaying?.episode.id, positions]}
+          contentContainerStyle={styles.listContent}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -64,35 +98,32 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  listContent: {
+    paddingBottom: 120,
   },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
+  section: {
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    paddingTop: Spacing.three,
+  },
+  sectionTitle: {
+    letterSpacing: 1,
+    marginBottom: Spacing.one,
+  },
+  emptyText: {
+    padding: Spacing.four,
+  },
+  emptyCard: {
+    margin: Spacing.three,
+    padding: Spacing.four,
+    borderRadius: 16,
+    gap: Spacing.two,
+    alignItems: 'flex-start',
+  },
+  link: {
+    marginTop: Spacing.one,
   },
 });
