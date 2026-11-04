@@ -1,56 +1,64 @@
-# Welcome to your Expo app 👋
+# PaceIt 🚶🎧
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A deliberately minimal podcast player, built for **learning while walking**. PaceIt exists because every podcast app today is a discovery engine first and a player second. This is the opposite: a quiet triage screen and a player with ergonomics for language learners.
 
-## Get started
+## The idea
 
-1. Install dependencies
+Two motivations:
 
-   ```bash
-   npm install
-   ```
+1. **Simplicity.** Google Podcasts had the perfect home screen — newest episodes from the shows you follow, nothing else. Nobody builds that anymore. PaceIt does.
+2. **Language immersion.** The most effective way to acquire a language (the way English was acquired) is massive listening to content you actually enjoy. PaceIt is an **audio player with learner ergonomics** — *not* a learning app. No streaks, no flashcards, no clutter. Just: slow the audio down, skip back 15 seconds, and stay in the flow.
 
-2. Start the app
+## Features
 
-   ```bash
-   npx expo start
-   ```
+- **Home** — newest episodes from followed shows, plus a "Continue" section for in-progress episodes
+- **Search** — powered by the [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/); follow a show and its RSS feed is stored
+- **Shows** — your followed shows with auto-detected language tags (日本語 / Français / …) from each feed's `<language>` element
+- **Player** — background playback, lock-screen controls, per-episode resume position
+- **Learner controls** — speed cycling (1 → 0.75 → 1.25 → 1.5 → 0.5 → 2, pitch-corrected) and skip-back-15s, both reachable from the floating mini player
 
-In the output, you'll find options to open the app in a
+## Content sources
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Discovery: iTunes Search API (free, no key) — results include the show's RSS `feedUrl`
+- Playback: standard podcast RSS feeds only. Shows that are Spotify-exclusive or don't publish RSS can't be added — accepted limitation, not a bug
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Architecture
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/
+  app/            Expo Router screens: index (Home), search, following
+  lib/
+    player.tsx    PlayerProvider — one persistent audio session for the app's
+                  lifetime (expo-audio), lock screen metadata, rate control
+    library.tsx   LibraryProvider — followed shows, episodes, playback positions
+    itunes.ts     iTunes Search API client
+    rss.ts        RSS parsing (fast-xml-parser), duration + language helpers
+    storage.ts    AsyncStorage persistence (follows, episodes, positions, rate)
+    types.ts      Show / Episode / PlaybackPosition
+  components/     mini-player, episode-row, themed primitives, NativeTabs config
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Providers wrap the whole app in `src/app/_layout.tsx`: `LibraryProvider → PlayerProvider → tabs + MiniPlayer`. Screens consume them via `useLibrary()` / `usePlayer()`.
 
-### Other setup steps
+## Development
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm install
+npx expo start        # dev server (Expo Go works for UI + foreground audio)
+npx tsc --noEmit      # typecheck
+npx eslint src        # lint
+```
 
-## Learn more
+**Background playback requires a development build.** Expo Go can play audio in the foreground, but locking the screen stops it — the `audio` `UIBackgroundMode` (iOS) and media-playback foreground service (Android) only exist in a compiled binary:
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npx expo run:ios --device            # local build (needs Xcode)
+# or
+npx eas-cli build --profile development   # cloud build
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Status & roadmap
 
-## Join the community
+**Working:** search → follow → play → resume, learner controls, language auto-tagging.
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Next:** full-screen Now Playing (scrub bar), auto-advance within a show, language filter chips on Home, dev-build validation of background audio + lock-screen controls.
