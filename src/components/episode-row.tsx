@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTabPrefix } from '@/hooks/use-tab-prefix';
 import { usePlayer } from '@/lib/player';
 import { useTheme } from '@/hooks/use-theme';
 import type { Episode, Show } from '@/lib/types';
@@ -23,6 +24,7 @@ export function formatDate(ms: number): string {
 
 export function EpisodeRow({ episode, show }: { episode: Episode; show?: Show | null }) {
   const theme = useTheme();
+  const prefix = useTabPrefix();
   const { nowPlaying, status, playEpisode, togglePlay } = usePlayer();
 
   const isCurrent = nowPlaying?.episode.id === episode.id;
@@ -37,10 +39,11 @@ export function EpisodeRow({ episode, show }: { episode: Episode; show?: Show | 
   };
 
   const onOpen = () => {
-    // Pass feedUrl so the details screen can resolve episodes for shows
-    // that aren't followed yet (e.g. browsing a show from search results).
+    // Detail routes live inside each tab's stack (so the tab bar stays
+    // visible), so push within the current tab via its prefix. feedUrl lets
+    // the details screen resolve episodes for shows that aren't followed yet.
     router.push({
-      pathname: '/episode/[id]',
+      pathname: `${prefix}/episode/[id]`,
       params: { id: episode.id, feedUrl: show?.feedUrl ?? '' },
     });
   };

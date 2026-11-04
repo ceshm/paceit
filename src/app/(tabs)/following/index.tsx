@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -66,8 +67,20 @@ function ShowRow({
   onUnfollow: (show: Show) => void;
 }) {
   const langLabel = LANG_LABELS[show.language];
+  const onOpen = () => {
+    router.push({
+      pathname: '/following/show/[id]',
+      params: {
+        id: show.id,
+        title: show.title,
+        artist: show.artist,
+        artwork: show.artwork,
+        feedUrl: show.feedUrl,
+      },
+    });
+  };
   return (
-    <View style={styles.row}>
+    <Pressable onPress={onOpen} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
       <Image source={{ uri: show.artwork }} style={styles.artwork} contentFit="cover" />
       <View style={styles.textCol}>
         <ThemedText type="default" numberOfLines={2}>
@@ -92,7 +105,10 @@ function ShowRow({
         </View>
       </View>
       <Pressable
-        onPress={() => onUnfollow(show)}
+        onPress={(e) => {
+          e.stopPropagation();
+          onUnfollow(show);
+        }}
         hitSlop={8}
         style={({ pressed }) => [styles.unfollowButton, pressed && { opacity: 0.6 }]}
       >
@@ -100,7 +116,7 @@ function ShowRow({
           Unfollow
         </ThemedText>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 

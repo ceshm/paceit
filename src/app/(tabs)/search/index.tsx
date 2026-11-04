@@ -140,7 +140,7 @@ function ResultRow({
     // Pass enough metadata to render the show details screen before any
     // feed fetch completes, and to allow following from there.
     router.push({
-      pathname: '/show/[id]',
+      pathname: '/search/show/[id]',
       params: {
         id: result.id,
         title: result.title,

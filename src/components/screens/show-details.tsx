@@ -2,7 +2,6 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EpisodeRow, formatDuration } from '@/components/episode-row';
 import { ThemedText } from '@/components/themed-text';
@@ -90,11 +89,9 @@ export default function ShowDetailsScreen() {
   if (!show) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-            Show not found. It may have been unfollowed.
-          </ThemedText>
-        </SafeAreaView>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+          Show not found. It may have been unfollowed.
+        </ThemedText>
       </ThemedView>
     );
   }
@@ -135,37 +132,33 @@ export default function ShowDetailsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <FlatList
-          data={episodes}
-          keyExtractor={(ep, i) => `${ep.id}-${i}`}
-          renderItem={({ item }) => <EpisodeRow episode={item} show={show} />}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={
-            remoteState === 'loading' ? (
-              <ActivityIndicator style={styles.spinner} />
-            ) : remoteState === 'error' ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-                Couldn&apos;t load episodes. Check your connection and try again.
-              </ThemedText>
-            ) : (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-                {followed ? 'No episodes in the feed yet.' : 'Follow to get new episodes in your Home feed.'}
-              </ThemedText>
-            )
-          }
-          contentContainerStyle={styles.listContent}
-        />
-      </SafeAreaView>
+      <FlatList
+        contentInsetAdjustmentBehavior="automatic"
+        data={episodes}
+        keyExtractor={(ep, i) => `${ep.id}-${i}`}
+        renderItem={({ item }) => <EpisodeRow episode={item} show={show} />}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={
+          remoteState === 'loading' ? (
+            <ActivityIndicator style={styles.spinner} />
+          ) : remoteState === 'error' ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+              Couldn&apos;t load episodes. Check your connection and try again.
+            </ThemedText>
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+              {followed ? 'No episodes in the feed yet.' : 'Follow to get new episodes in your Home feed.'}
+            </ThemedText>
+          )
+        }
+        contentContainerStyle={styles.listContent}
+      />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  safeArea: {
     flex: 1,
   },
   header: {

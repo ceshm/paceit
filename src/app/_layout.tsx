@@ -25,6 +25,11 @@ export default function RootLayout() {
  * when starting an episode, push progress updates back into the library, and
  * auto-advance to the next episode of the same show when one finishes.
  * Everything lives INSIDE PlayerProvider so screens can call usePlayer().
+ *
+ * Detail screens are NOT here — they live inside each tab's own Stack
+ * (see src/app/(tabs)/<tab>/_layout.tsx), so the native tab bar stays
+ * visible when pushing show/episode details. Only /player stays at the
+ * root, presented as a formSheet that covers everything.
  */
 function AppShell() {
   const colorScheme = useColorScheme();

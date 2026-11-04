@@ -13,18 +13,22 @@ The user's plan: make PaceIt feel complete *as a podcast player* so they can tak
 - MVP: iTunes Search API search → follow shows (RSS) → Home feed of newest episodes + "Continue" section → playback with per-episode resume positions
 - Committed: full-screen Now Playing modal via `presentation: 'formSheet'` (native sheet on both platforms — iOS card, Android Material BottomSheetBehavior, native swipe-to-dismiss + scrim; replaced a hand-rolled Android drag-dismiss that flashed on close), custom Scrubber, ±15s both ways, persisted speed cycling, auto-advance to next episode of the same show, ✕ clear on search, MiniPlayer hidden while `/player` is open, `GestureHandlerRootView` at root
 - **UNCOMMITTED UX work (device-verify, then commit):**
-  - New `src/app/episode/[id].tsx`: artwork, title, show, date/duration, "X remaining" progress, play/pause, scrollable description; falls back to fetching the feed (feedUrl param) for episodes of unfollowed shows
-  - New `src/app/show/[id].tsx`: **discovery mode for unfollowed shows** — renders from search params (id/title/artist/artwork/feedUrl), fetches feed live for episodes + channel description, follow toggle. Followed shows use library data. No more "show not found" dead end
-  - `src/components/episode-row.tsx`: play badge = nested Pressable w/ stopPropagation (play/pause only); rest of row navigates to `/episode/[id]` with feedUrl param
-  - `src/app/(tabs)/search.tsx`: rows navigate to `/show/[id]` passing title/artist/artwork/feedUrl params; follow button stopPropagation
+  - **Navigation restructured: per-tab stacks inside NativeTabs.** User found detail screens pushing at root level felt wrong (tab bar vanished, MiniPlayer floated as a ghost above nothing). Fix: each tab is now a directory with its own `Stack` layout nested inside NativeTabs (the documented pattern — NativeTabs can't show headers itself but nests stacks fine), so pushing show/episode details keeps the native tab bar visible and gives a native header + back button on both platforms
+  - Structure: `src/app/(tabs)/{home,search,following}/_layout.tsx` (Stack: `index` headerShown false, `show/[id]` + `episode/[id]` with native headers, `headerBackButtonDisplayMode: 'minimal'`) + `index.tsx` tab roots + thin wrapper route files for details (implementations live in `src/components/screens/{show-details,episode-details}.tsx` — route files only export default per project rule)
+  - `src/hooks/use-tab-prefix.ts`: returns typed `'/home' | '/search' | '/following'` from `useSegments()` — shared components push detail routes within the current tab (routes only exist under a tab prefix now; root-level `/show/[id]`, `/episode/[id]` are gone)
+  - Detail screens: SafeAreaView top edges removed (native header owns the top inset); bottom padding 120 to clear tab bar + MiniPlayer; episode's hand-rolled `‹ EPISODE` header deleted
+  - Following tab rows now tap-open show details (Pressable + push `/following/show/[id]`, unfollow button stopPropagation) — previously unreachable from that tab
+  - `src/components/episode-row.tsx`: play badge = nested Pressable w/ stopPropagation (play/pause only); rest of row navigates to `${prefix}/episode/[id]` with feedUrl param
+  - `src/app/(tabs)/search/index.tsx`: rows navigate to `/search/show/[id]` passing title/artist/artwork/feedUrl params; follow button stopPropagation
+  - MiniPlayer: unchanged, floats above the (now always-visible) tab bar on detail screens — consistent everywhere except `/player` (hidden there)
   - Bottom padding: `src/app/player.tsx` safeArea + `src/components/mini-player.tsx` container (rate button clears the home/gesture bar)
   - Data: `description` added to Episode (required) + Show (optional) in `types.ts`; `rss.ts` has `stripHtml` (tags + entities) and parses item description/summary + channel description; `library.tsx` persists show description on follow and refresh
-- Structure: `src/app/(tabs)/{index,search,following}` + `src/app/{player,show/[id],episode/[id]}.tsx` under root Stack; Library → Player providers in `src/app/_layout.tsx`
+- Structure: `src/app/(tabs)/{home,search,following}/…` (per-tab stacks) + `src/app/player.tsx` (root formSheet); Library → Player providers in `src/app/_layout.tsx`. Typed routes now include `/home`, `/search`, `/following` — cold links resolve per-tab (`/home/show/[id]` etc.)
 - Verified: `npx tsc --noEmit` and `npx eslint src` clean (only pre-existing template errors in web-only files)
 
 ## Next steps, in order
 
-1. User tests the detail screens + navigation flow in Expo Go (iOS + Android) → fix issues, then **commit the uncommitted UX work**
+1. User tests the restructured navigation in Expo Go (iOS + Android): tab bar stays visible on detail screens, native headers + back buttons work, MiniPlayer position consistent → then **commit the uncommitted UX work**. Watch for: iOS 18-and-earlier transparent tab bar on scroll end (`disableTransparentOnScrollEdge` if it looks bad), tab-switch state (each tab keeps its own stack)
 2. Dev build (`npx expo run:ios --device` or `eas build --profile development`) → verify background playback + lock-screen controls (core use case; only works in a compiled build — Expo Go stops audio when screen locks)
 3. Further podcast polish candidates: queue management, episode "mark played", pull-to-refresh on Home, richer episode rows (description snippet)
 4. Learning/language features: **wait for dogfooding feedback**
@@ -32,6 +36,8 @@ The user's plan: make PaceIt feel complete *as a podcast player* so they can tak
 ## Known caveats
 
 - formSheet: no nested navigators/headers inside the sheet screen; iOS animation duration not customizable
+- **Per-tab stacks:** detail routes exist ×3 (one per tab directory) as thin wrappers around shared components in `src/components/screens/` — edit the component, not the wrappers. `useTabPrefix()` union must stay in sync with tab directory names
+- Cold links/deep links now need the tab prefix (`/search/show/[id]`); bare `/show/[id]` no longer resolves
 - Episodes cached *before* the description change have no description until the next feed refresh (app restart triggers it)
 - Feed descriptions are HTML blobs — always parse through `stripHtml` in `rss.ts`, never render raw `item.description`
 
