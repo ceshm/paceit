@@ -81,7 +81,10 @@ const styles = StyleSheet.create({
     left: Spacing.two,
     right: Spacing.two,
     borderRadius: 16,
+    // Extra bottom room so controls (esp. the rate button) sit clear of the
+    // home-indicator / gesture bar — swiping home must not fight the player.
     padding: Spacing.two,
+    paddingBottom: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,

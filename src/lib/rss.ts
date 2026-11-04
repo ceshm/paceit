@@ -11,6 +11,7 @@ const parser = new XMLParser({
 
 type FeedChannel = {
   title?: string | { '#text': string };
+  description?: string | { '#text': string };
   language?: string;
   item?: FeedItem | FeedItem[];
 };
@@ -19,6 +20,8 @@ type FeedItem = {
   guid?: string | { '#text': string };
   title?: string | { '#text': string };
   pubDate?: string;
+  description?: string | { '#text': string };
+  summary?: string | { '#text': string };
   enclosure?: { '@_url'?: string; '@_type'?: string };
   'itunes:duration'?: string | number;
 };
@@ -31,6 +34,36 @@ function asText(value: unknown): string {
     return String((value as { '#text': unknown })['#text'] ?? '');
   }
   return '';
+}
+
+/**
+ * Strip markup + decode the common entities from feed descriptions.
+ * RSS descriptions are typically HTML blobs — we only ever display plain text.
+ */
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+export function stripHtml(raw: unknown): string {
+  const text = asText(raw);
+  if (!text) return '';
+  return text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&(#?\w+);/g, (match, code: string) => {
+      const key = code.toLowerCase();
+      const named = ENTITIES[key];
+      if (named) return named;
+      if (/^#x[0-9a-f]+$/.test(key)) return String.fromCodePoint(parseInt(key.slice(2), 16));
+      if (/^#\d+$/.test(key)) return String.fromCodePoint(parseInt(key.slice(1), 10));
+      return match;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** "1:02:03" | "12:34" | "754" -> seconds */
@@ -59,7 +92,7 @@ type FetchShowInput = Pick<Show, 'id' | 'title' | 'artwork'>;
 export async function fetchEpisodes(
   feedUrl: string,
   show: FetchShowInput,
-): Promise<{ episodes: Episode[]; language: string }> {
+): Promise<{ episodes: Episode[]; language: string; description: string }> {
   const res = await fetch(feedUrl, {
     headers: { Accept: 'application/rss+xml, application/xml, text/xml' },
   });
@@ -75,6 +108,7 @@ export async function fetchEpisodes(
 
   const items = channel.item ? (Array.isArray(channel.item) ? channel.item : [channel.item]) : [];
   const language = normalizeLanguage(channel.language);
+  const channelDescription = stripHtml(channel.description);
 
   const episodes: Episode[] = items
     .map((item, index) => {
@@ -91,9 +125,10 @@ export async function fetchEpisodes(
         pubDate: Number.isNaN(pubDateMs) ? 0 : pubDateMs,
         audioUrl,
         durationSec: parseDuration(item['itunes:duration']),
+        description: stripHtml(item.description) || stripHtml(item.summary),
       };
     })
     .filter((ep) => ep.audioUrl && ep.title);
 
-  return { episodes, language };
+  return { episodes, language, description: channelDescription };
 }

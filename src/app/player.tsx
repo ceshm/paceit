@@ -130,6 +130,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: Spacing.four,
+    // Extra room so the rate button and skip controls stay clear of the
+    // home-indicator / gesture bar — the screen is dismissable by a bottom
+    // swipe (formSheet), so interactive elements must not sit at the edge.
+    paddingBottom: Spacing.five,
   },
   header: {
     width: '100%',

@@ -64,26 +64,34 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setRefreshing(true);
     const results = await Promise.allSettled(
       shows.map(async (show) => {
-        const { episodes, language } = await fetchEpisodes(show.feedUrl, show);
-        return { show, episodes, language };
+        const { episodes, language, description } = await fetchEpisodes(show.feedUrl, show);
+        return { show, episodes, language, description };
       }),
     );
     setRefreshing(false);
 
     const nextEpisodes: Record<string, Episode[]> = {};
-    const languageUpdates: { show: Show; language: string }[] = [];
+    const updates: { show: Show }[] = [];
     for (const result of results) {
       if (result.status === 'rejected') continue;
-      const { show, episodes, language } = result.value;
+      const { show, episodes, language, description } = result.value;
       nextEpisodes[show.id] = episodes;
       void storage.saveEpisodes(show.id, episodes);
-      if (language && language !== show.language) {
-        languageUpdates.push({ show: { ...show, language }, language });
+      const languageChanged = !!language && language !== show.language;
+      const descriptionChanged = !!description && description !== show.description;
+      if (languageChanged || descriptionChanged) {
+        updates.push({
+          show: {
+            ...show,
+            ...(languageChanged ? { language } : {}),
+            ...(descriptionChanged ? { description } : {}),
+          },
+        });
       }
     }
     setEpisodesByShow((prev) => ({ ...prev, ...nextEpisodes }));
-    if (languageUpdates.length > 0) {
-      const updated = languageUpdates.map((u) => u.show);
+    if (updates.length > 0) {
+      const updated = updates.map((u) => u.show);
       setShows((prev) => prev.map((s) => updated.find((u) => u.id === s.id) ?? s));
       void storage.saveFollows(updated);
     }
@@ -125,10 +133,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
 
     // Fetch episodes immediately so the new show appears on Home,
-    // and tag the show with the feed's own language.
+    // and tag the show with the feed's own language + description.
     try {
-      const { episodes, language } = await fetchEpisodes(show.feedUrl, show);
-      const taggedShow = language ? { ...show, language } : show;
+      const { episodes, language, description } = await fetchEpisodes(show.feedUrl, show);
+      const taggedShow = {
+        ...show,
+        ...(language ? { language } : {}),
+        ...(description ? { description } : {}),
+      };
       const updated = nextShows.map((s) => (s.id === show.id ? taggedShow : s));
       showsRef.current = updated;
       setShows(updated);

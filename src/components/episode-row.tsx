@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -27,7 +28,7 @@ export function EpisodeRow({ episode, show }: { episode: Episode; show?: Show | 
   const isCurrent = nowPlaying?.episode.id === episode.id;
   const isPlaying = isCurrent && status?.playing;
 
-  const onPress = () => {
+  const onPlay = () => {
     if (isCurrent) {
       togglePlay();
     } else {
@@ -35,8 +36,17 @@ export function EpisodeRow({ episode, show }: { episode: Episode; show?: Show | 
     }
   };
 
+  const onOpen = () => {
+    // Pass feedUrl so the details screen can resolve episodes for shows
+    // that aren't followed yet (e.g. browsing a show from search results).
+    router.push({
+      pathname: '/episode/[id]',
+      params: { id: episode.id, feedUrl: show?.feedUrl ?? '' },
+    });
+  };
+
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
+    <Pressable onPress={onOpen} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
       <Image source={{ uri: episode.showArtwork }} style={styles.artwork} contentFit="cover" />
       <View style={styles.textCol}>
         <ThemedText type="default" numberOfLines={2} style={isCurrent && styles.activeTitle}>
@@ -49,9 +59,18 @@ export function EpisodeRow({ episode, show }: { episode: Episode; show?: Show | 
           {[formatDate(episode.pubDate), formatDuration(episode.durationSec)].filter(Boolean).join(' · ')}
         </ThemedText>
       </View>
-      <ThemedView type={isPlaying ? 'backgroundSelected' : 'backgroundElement'} style={styles.playBadge}>
-        <ThemedText type="smallBold">{isPlaying ? '❚❚' : '▶'}</ThemedText>
-      </ThemedView>
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation();
+          onPlay();
+        }}
+        hitSlop={8}
+        style={({ pressed }) => pressed && { opacity: 0.6 }}
+      >
+        <ThemedView type={isPlaying ? 'backgroundSelected' : 'backgroundElement'} style={styles.playBadge}>
+          <ThemedText type="smallBold">{isPlaying ? '❚❚' : '▶'}</ThemedText>
+        </ThemedView>
+      </Pressable>
       <View style={[styles.border, { backgroundColor: theme.backgroundElement }]} />
     </Pressable>
   );

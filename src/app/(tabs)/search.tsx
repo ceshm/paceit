@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -135,8 +136,23 @@ function ResultRow({
   followed: boolean;
   onToggle: (result: ItunesResult) => void;
 }) {
+  const onOpen = () => {
+    // Pass enough metadata to render the show details screen before any
+    // feed fetch completes, and to allow following from there.
+    router.push({
+      pathname: '/show/[id]',
+      params: {
+        id: result.id,
+        title: result.title,
+        artist: result.artist,
+        artwork: result.artwork,
+        feedUrl: result.feedUrl,
+      },
+    });
+  };
+
   return (
-    <View style={styles.resultRow}>
+    <Pressable onPress={onOpen} style={({ pressed }) => [styles.resultRow, pressed && { opacity: 0.7 }]}>
       <Image source={{ uri: result.artwork }} style={styles.artwork} contentFit="cover" />
       <View style={styles.textCol}>
         <ThemedText type="default" numberOfLines={2}>
@@ -147,14 +163,17 @@ function ResultRow({
         </ThemedText>
       </View>
       <Pressable
-        onPress={() => onToggle(result)}
+        onPress={(e) => {
+          e.stopPropagation();
+          onToggle(result);
+        }}
         style={({ pressed }) => [styles.followButton, followed && styles.following, pressed && { opacity: 0.7 }]}
       >
         <ThemedText type="smallBold" style={followed && styles.followingText}>
           {followed ? '✓ Following' : '+ Follow'}
         </ThemedText>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 

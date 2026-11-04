@@ -7,6 +7,8 @@ export type Show = {
   artwork: string;
   /** ISO language prefix from the feed, e.g. 'ja', 'fr', 'en' — editable later */
   language: string;
+  /** plain-text show description from the feed, when available */
+  description?: string;
   addedAt: number;
 };
 
@@ -22,6 +24,8 @@ export type Episode = {
   audioUrl: string;
   /** seconds, 0 if unknown */
   durationSec: number;
+  /** plain-text episode description / show notes, '' when the feed has none */
+  description: string;
 };
 
 export type PlaybackPosition = {
