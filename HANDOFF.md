@@ -8,22 +8,32 @@
 
 The user's plan: make PaceIt feel complete *as a podcast player* so they can take it on real walks, then let actual usage dictate exactly which learning features get built (language filter chips, etc. are deliberately deferred — do not build them proactively). When suggesting work, prioritize whatever makes daily walking-listening feel polished.
 
-## Current state (all on `main`, last commit `0a8eddf`)
+## Current state (all on `main`, last commit `6dd4f25` — Now Playing + formSheet work committed & pushed)
 
 - MVP: iTunes Search API search → follow shows (RSS) → Home feed of newest episodes + "Continue" section → playback with per-episode resume positions
-- Added & device-verified: full-screen Now Playing modal (tap mini player → opens; ⌄ or swipe down to close), custom gesture-based Scrubber, ±15s both ways, persisted speed cycling (1→0.75→1.25→1.5→0.5→2), auto-advance to next episode of the same show on finish, ✕ clear button on search, MiniPlayer hidden while `/player` route is open
-- Player modal presentation: `presentation: 'formSheet'` in `src/app/_layout.tsx` — native sheet on both platforms (iOS UIModalPresentationFormSheet card, Android Material BottomSheetBehavior) with native swipe-to-dismiss and scrim. Replaced a hand-rolled Android drag-to-dismiss that caused a background flash/double-animation on close. formSheet caveats: no nested navigators/headers inside the sheet screen; iOS animation duration not customizable
-- Structure: `src/app/(tabs)/{index,search,following}` + `src/app/player.tsx` (modal) under root Stack; Library → Player providers in `src/app/_layout.tsx`; `GestureHandlerRootView` wraps the root there
-- Verified: `npx tsc --noEmit` and `npx eslint src` clean (only pre-existing template errors in web-only files), `npx expo export` succeeds
-- Pending: commit the Now Playing work; further device feel-testing (scrubber gesture feel, Android modal presentation)
+- Committed: full-screen Now Playing modal via `presentation: 'formSheet'` (native sheet on both platforms — iOS card, Android Material BottomSheetBehavior, native swipe-to-dismiss + scrim; replaced a hand-rolled Android drag-dismiss that flashed on close), custom Scrubber, ±15s both ways, persisted speed cycling, auto-advance to next episode of the same show, ✕ clear on search, MiniPlayer hidden while `/player` is open, `GestureHandlerRootView` at root
+- **UNCOMMITTED UX work (device-verify, then commit):**
+  - New `src/app/episode/[id].tsx`: artwork, title, show, date/duration, "X remaining" progress, play/pause, scrollable description; falls back to fetching the feed (feedUrl param) for episodes of unfollowed shows
+  - New `src/app/show/[id].tsx`: **discovery mode for unfollowed shows** — renders from search params (id/title/artist/artwork/feedUrl), fetches feed live for episodes + channel description, follow toggle. Followed shows use library data. No more "show not found" dead end
+  - `src/components/episode-row.tsx`: play badge = nested Pressable w/ stopPropagation (play/pause only); rest of row navigates to `/episode/[id]` with feedUrl param
+  - `src/app/(tabs)/search.tsx`: rows navigate to `/show/[id]` passing title/artist/artwork/feedUrl params; follow button stopPropagation
+  - Bottom padding: `src/app/player.tsx` safeArea + `src/components/mini-player.tsx` container (rate button clears the home/gesture bar)
+  - Data: `description` added to Episode (required) + Show (optional) in `types.ts`; `rss.ts` has `stripHtml` (tags + entities) and parses item description/summary + channel description; `library.tsx` persists show description on follow and refresh
+- Structure: `src/app/(tabs)/{index,search,following}` + `src/app/{player,show/[id],episode/[id]}.tsx` under root Stack; Library → Player providers in `src/app/_layout.tsx`
+- Verified: `npx tsc --noEmit` and `npx eslint src` clean (only pre-existing template errors in web-only files)
 
 ## Next steps, in order
 
-1. User tests current UI in Expo Go (iOS + Android) → fix visual/feel issues (scrubber gesture feel, modal presentation, mini-player offsets)
-2. Commit the Now Playing work once approved
-3. Dev build (`npx expo run:ios --device` or `eas build --profile development`) → verify background playback + lock-screen controls (core use case; only works in a compiled build — Expo Go stops audio when screen locks)
-4. Further podcast polish candidates: queue management, episode "mark played", pull-to-refresh on Home
-5. Learning/language features: **wait for dogfooding feedback**
+1. User tests the detail screens + navigation flow in Expo Go (iOS + Android) → fix issues, then **commit the uncommitted UX work**
+2. Dev build (`npx expo run:ios --device` or `eas build --profile development`) → verify background playback + lock-screen controls (core use case; only works in a compiled build — Expo Go stops audio when screen locks)
+3. Further podcast polish candidates: queue management, episode "mark played", pull-to-refresh on Home, richer episode rows (description snippet)
+4. Learning/language features: **wait for dogfooding feedback**
+
+## Known caveats
+
+- formSheet: no nested navigators/headers inside the sheet screen; iOS animation duration not customizable
+- Episodes cached *before* the description change have no description until the next feed refresh (app restart triggers it)
+- Feed descriptions are HTML blobs — always parse through `stripHtml` in `rss.ts`, never render raw `item.description`
 
 ## Workflow reminders
 
