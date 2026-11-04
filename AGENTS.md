@@ -1,6 +1,6 @@
 # PaceIt — AGENTS.md
 
-A minimal podcast player for listening while walking, with ergonomics for language learners (French, Japanese). Philosophy: an audio player with learner features, NOT a learning app — simplicity beats features. See README.md for product context.
+A minimal podcast player for listening while walking, with ergonomics for language learners (French, Japanese). Philosophy: an audio player with learner features, NOT a learning app — simplicity beats features. See README.md for product context and HANDOFF.md for current session state and priorities.
 
 ## Architecture map
 
