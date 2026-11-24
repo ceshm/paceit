@@ -1,53 +1,32 @@
 # PaceIt — session handoff
 
-> Read `AGENTS.md` (rules, gotchas, lint quirks) and `README.md` (product + architecture) first.
+> Read [AGENTS.md](./AGENTS.md) (architecture, rules, permanent gotchas) and [README.md](./README.md) (product context) first.
 
 ## Guiding approach right now
 
 **Polish the podcast-listening UX first. Discover the language-learning features later by dogfooding.**
 
-The user's plan: make PaceIt feel complete *as a podcast player* so they can take it on real walks, then let actual usage dictate exactly which learning features get built (language filter chips, etc. are deliberately deferred — do not build them proactively). When suggesting work, prioritize whatever makes daily walking-listening feel polished.
+Make PaceIt feel complete *as a podcast player* so it can be taken on real walks, then let actual usage dictate which learning features to build (language filter chips, etc. are deliberately deferred — do not build them proactively). When suggesting work, prioritize whatever makes daily walking-listening feel polished.
 
-## Current state (all on `main`, last commit `6dd4f25` — Now Playing + formSheet work committed & pushed)
+## Current state
 
-- MVP: iTunes Search API search → follow shows (RSS) → Home feed of newest episodes + "Continue" section → playback with per-episode resume positions
-- Committed: full-screen Now Playing modal via `presentation: 'formSheet'` (native sheet on both platforms — iOS card, Android Material BottomSheetBehavior, native swipe-to-dismiss + scrim; replaced a hand-rolled Android drag-dismiss that flashed on close), custom Scrubber, ±15s both ways, persisted speed cycling, auto-advance to next episode of the same show, ✕ clear on search, MiniPlayer hidden while `/player` is open, `GestureHandlerRootView` at root
-- **UNCOMMITTED UX work (device-verify, then commit):**
-  - **Navigation restructured: per-tab stacks inside NativeTabs.** User found detail screens pushing at root level felt wrong (tab bar vanished, MiniPlayer floated as a ghost above nothing). Fix: each tab is now a directory with its own `Stack` layout nested inside NativeTabs (the documented pattern — NativeTabs can't show headers itself but nests stacks fine), so pushing show/episode details keeps the native tab bar visible and gives a native header + back button on both platforms
-  - Structure: `src/app/(tabs)/{home,search,following}/_layout.tsx` (Stack: `index` headerShown false, `show/[id]` + `episode/[id]` with native headers, `headerBackButtonDisplayMode: 'minimal'`) + `index.tsx` tab roots + thin wrapper route files for details (implementations live in `src/components/screens/{show-details,episode-details}.tsx` — route files only export default per project rule)
-  - `src/hooks/use-tab-prefix.ts`: returns typed `'/home' | '/search' | '/following'` from `useSegments()` — shared components push detail routes within the current tab (routes only exist under a tab prefix now; root-level `/show/[id]`, `/episode/[id]` are gone)
-  - Detail screens: SafeAreaView top edges removed (native header owns the top inset); bottom padding 120 to clear tab bar + MiniPlayer; episode's hand-rolled `‹ EPISODE` header deleted
-  - Following tab rows now tap-open show details (Pressable + push `/following/show/[id]`, unfollow button stopPropagation) — previously unreachable from that tab
-  - `src/components/episode-row.tsx`: play badge = nested Pressable w/ stopPropagation (play/pause only); rest of row navigates to `${prefix}/episode/[id]` with feedUrl param
-  - `src/app/(tabs)/search/index.tsx`: rows navigate to `/search/show/[id]` passing title/artist/artwork/feedUrl params; follow button stopPropagation
-  - MiniPlayer: unchanged, floats above the (now always-visible) tab bar on detail screens — consistent everywhere except `/player` (hidden there)
-  - Bottom padding: `src/app/player.tsx` safeArea + `src/components/mini-player.tsx` container (rate button clears the home/gesture bar)
-  - Data: `description` added to Episode (required) + Show (optional) in `types.ts`; `rss.ts` has `stripHtml` (tags + entities) and parses item description/summary + channel description; `library.tsx` persists show description on follow and refresh
-- Structure: `src/app/(tabs)/{home,search,following}/…` (per-tab stacks) + `src/app/player.tsx` (root formSheet); Library → Player providers in `src/app/_layout.tsx`. Typed routes now include `/home`, `/search`, `/following` — cold links resolve per-tab (`/home/show/[id]` etc.)
-- Verified: `npx tsc --noEmit` and `npx eslint src` clean (only pre-existing template errors in web-only files)
+All work on `main`:
+
+- **Core player & library**: iTunes Search API discovery → follow shows via RSS → Home feed (newest episodes + "Continue" in-progress section) → persistent playback with per-episode resume positions, persisted speed cycling (`1 → 0.75 → 1.25 → 1.5 → 0.5 → 2`), ±15s skip, and auto-advance to the next episode of the same show.
+- **Now Playing modal** (`src/app/player.tsx`): native `formSheet` on both platforms (iOS card, Android Material `BottomSheetBehavior` with native swipe-to-dismiss + scrim), custom `Scrubber`, bottom safe-area clearance, `MiniPlayer` hidden while open.
+- **Navigation & detail screens** (`bc1f5b7`): per-tab `Stack` navigators nested inside `NativeTabs` (`src/app/(tabs)/{home,search,following}/`) so pushing Show/Episode detail screens keeps the native tab bar visible with native headers and back buttons. Shared implementations live in `src/components/screens/{show-details,episode-details}.tsx` using `useTabPrefix()`. RSS item + channel descriptions are stripped of HTML and persisted.
+- **Project hygiene**: removed unused Expo starter template files (including broken `.web` files and `scripts/reset-project.js`), fixed missing `android.adaptiveIcon` paths in `app.json`, installed missing `expo-audio` peer dep `expo-asset`, aligned SDK 58 package versions, added `npm run typecheck`, and synced docs. `npm run typecheck`, `npm run lint`, and `npx expo-doctor` all pass cleanly.
 
 ## Next steps, in order
 
-1. User tests the restructured navigation in Expo Go (iOS + Android): tab bar stays visible on detail screens, native headers + back buttons work, MiniPlayer position consistent → then **commit the uncommitted UX work**. Watch for: iOS 18-and-earlier transparent tab bar on scroll end (`disableTransparentOnScrollEdge` if it looks bad), tab-switch state (each tab keeps its own stack)
-2. Dev build (`npx expo run:ios --device` or `eas build --profile development`) → verify background playback + lock-screen controls (core use case; only works in a compiled build — Expo Go stops audio when screen locks)
-3. Further podcast polish candidates: queue management, episode "mark played", pull-to-refresh on Home, richer episode rows (description snippet)
-4. Learning/language features: **wait for dogfooding feedback**
+1. **Device-verify navigation in Expo Go (iOS + Android)**: confirm tab bar stays visible on detail screens, native headers + back buttons behave properly, `MiniPlayer` clearance looks right, and per-tab stack state persists across tab switches. Watch for iOS 18-and-earlier transparent tab bar on scroll edge (`disableTransparentOnScrollEdge` if it looks off).
+2. **Development build (`npx expo run:ios --device` or `npx eas-cli@latest build --profile development`)**: validate background playback and lock-screen controls (core walking use case — Expo Go stops audio when the screen locks). Before signing/EAS builds, replace placeholder `ios.bundleIdentifier` (`com.anonymous.paceit`) and add `android.package` in `app.json` (plus `eas.json` if using EAS).
+3. **Podcast UX polish candidates**: queue management, episode "mark played", pull-to-refresh on Home, richer episode rows (description snippet).
+4. **Learning/language features**: **wait for dogfooding feedback**.
 
-## Known caveats
+## Active caveats
 
-- formSheet: no nested navigators/headers inside the sheet screen; iOS animation duration not customizable
-- **Per-tab stacks:** detail routes exist ×3 (one per tab directory) as thin wrappers around shared components in `src/components/screens/` — edit the component, not the wrappers. `useTabPrefix()` union must stay in sync with tab directory names
-- Cold links/deep links now need the tab prefix (`/search/show/[id]`); bare `/show/[id]` no longer resolves
-- Episodes cached *before* the description change have no description until the next feed refresh (app restart triggers it)
-- Feed descriptions are HTML blobs — always parse through `stripHtml` in `rss.ts`, never render raw `item.description`
-
-## Workflow reminders
-
-- npm project (not bun); `npx expo lint` is broken here — use `npx eslint src`
-- expo-audio: use `useAudioPlayer`/`useAudioPlayerStatus` hooks and method calls; React Compiler forbids holding/mutating the player in state or refs during render
-- **Gesture callbacks + worklets (crashed the app twice):** in RNGH v3 + Reanimated 4, gesture callbacks run as worklets on the UI thread. Calling a state setter OR any plain JS helper (e.g. a `clamp` util) directly inside them throws "Tried to synchronously call a Remote Function" and SIGABRTs with no redbox. Two fixes in use: `Gesture.Pan().runOnJS(true)` (scrubber) forces all callbacks onto the JS thread — use for gestures that only update React state. For worklet gestures (player swipe-to-dismiss), only mutate shared values inside callbacks and bridge to JS with `scheduleOnRN` from `react-native-worklets` (project convention over `runOnJS`).
-- **React Compiler + Reanimated:** never pass a `useSharedValue` ref as a `useMemo`/`useCallback` dep — the compiler treats it as frozen and `react-hooks/immutability` errors on `.value =`. Omit it from deps (add exhaustive-deps disable comment).
-- `GestureDetector` requires `GestureHandlerRootView` — already wrapping the root in `src/app/_layout.tsx`; don't remove it.
-- **MiniPlayer visibility:** it's a sibling *after* the `Stack` in `src/app/_layout.tsx`, so it floats above screens on Android (iOS native modal hides it). It checks `usePathname()` and returns null when `/player` is open — keep that if restructuring.
-- MiniPlayer tab-bar offsets are hand-measured constants in `src/components/mini-player.tsx` — re-measure from screenshots if touched
-- Keep this file updated at the end of each session; delete superseded notes
+- Episodes cached *before* `description` was added to `Episode` won't show descriptions until the next feed refresh (app restart triggers it).
+- `ios.bundleIdentifier` in `app.json` is still placeholder `com.anonymous.paceit` — update before real device signing or EAS builds.
+- `android.adaptiveIcon` currently reuses `./assets/images/icon.png` as `foregroundImage` — replace with dedicated adaptive foreground/monochrome art before release.
+- Keep this file updated at the end of each session; promote permanent engineering gotchas to `AGENTS.md` and prune superseded notes.
